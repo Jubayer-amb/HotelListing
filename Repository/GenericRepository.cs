@@ -36,7 +36,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
         {
             query = orderBy(query);
         }
-        return await query.ToListAsync();
+        return await query.AsNoTracking().ToListAsync();
     }
     public async Task<T> Get(Expression<Func<T, bool>> expression, List<string>? includes = null)
     {
@@ -48,7 +48,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
                 query = query.Include(include);
             }
         }
-        return await query.FirstOrDefaultAsync(expression);
+        return await query.AsNoTracking().FirstOrDefaultAsync(expression);
     }
     public async Task<T> Insert(T entity)
     {
