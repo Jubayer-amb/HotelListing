@@ -1,9 +1,9 @@
 using System.Linq.Expressions;
-using HotelLIsting.Data;
-using HotelLIsting.IRepository;
+using HotelListing.Data;
+using HotelListing.IRepository;
 using Microsoft.EntityFrameworkCore;
 
-namespace HotelLIsting.Repository;
+namespace HotelListing.Repository;
 
 public class GenericRepository<T> : IGenericRepository<T> where T : class
 {

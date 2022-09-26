@@ -1,11 +1,15 @@
-using HotelLIsting.Data;
+using HotelListing.Authorization;
+using HotelListing.Data;
+using HotelListing.Helper;
+using HotelListing.IRepository;
+using HotelListing.Repository;
+using HotelListing.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
-var services = builder.Services;
 
 builder.Host.UseSerilog((context, config) =>
 {
@@ -13,49 +17,68 @@ builder.Host.UseSerilog((context, config) =>
         path: "..\\logs\\log-.txt",
         outputTemplate: "{Timestamp:yyyy/MM/dd HH:mm:ss} [{Level:u3}] {Message:lj} {NewLine}{Exception}{NewLine}",
         rollingInterval: RollingInterval.Day,
-        restrictedToMinimumLevel: LogEventLevel.Information
+        restrictedToMinimumLevel: LogEventLevel.Warning
         ).WriteTo.Console();
 });
 
+var services = builder.Services;
+
 // Add services to the container.
-
-services.AddDbContext<DatabaseContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("dbConnection"))
-);
-
-services.AddCors(o =>
 {
-    o.AddPolicy("AllowAll", b =>
-        b.AllowAnyOrigin()
-        .AllowAnyHeader()
-        .AllowAnyMethod());
-});
+    services.AddDbContext<DatabaseContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("dbConnection"))
+    );
 
-services.AddControllers();
+    services.Configure<AppSettings>(builder.Configuration.GetSection(AppSettings.Encriptions));
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-services.AddEndpointsApiExplorer();
-services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "HotelListing", Version = "v1" });
-});
+    services.AddCors(o =>
+    {
+        o.AddPolicy("AllowAll", b =>
+            b.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+    });
 
-var app = builder.Build();
+    services.AddAutoMapper(typeof(Program));
 
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "HotelListing v1"));
+    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+    services.AddEndpointsApiExplorer();
+    services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new OpenApiInfo { Title = "HotelListing", Version = "v1" });
+    });
+
+    services.AddControllers().AddNewtonsoftJson(op =>
+        op.SerializerSettings.ReferenceLoopHandling =
+        Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+
+
+    services.AddScoped<IUnitOfWork, UnitOfWork>();
+    services.AddScoped<IJwtUtils, JwtUtils>();
+    services.AddScoped<IUserService, UserService>();
+
 }
 
-app.UseHttpsRedirection();
+var app = builder.Build();
+{
 
-app.UseAuthorization();
+    // Configure the HTTP request pipeline.
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "HotelListing v1"));
+    }
 
-app.MapControllers();
+    app.UseHttpsRedirection();
 
-app.Run();
+    app.UseAuthorization();
 
+    app.UseMiddleware<ErrorHandlerMiddleware>();
 
+    app.UseMiddleware<JwtMiddleware>();
+
+    app.MapControllers();
+
+    app.Run();
+}
